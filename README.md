@@ -2,7 +2,7 @@
 
 A macOS menu bar app that plays a dramatic soundtrack with a full-screen countdown overlay before your meetings start.
 
-Inspired by [@rtwlz](https://x.com/rtwlz/status/1903156553894416614) who made his computer play BBC News music before every meeting.
+Inspired by [@rtwlz]
 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
