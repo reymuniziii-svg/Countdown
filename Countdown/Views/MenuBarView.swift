@@ -219,7 +219,7 @@ struct MenuBarView: View {
 
             Spacer()
 
-            Text(formatDuration(track.countdownDuration))
+            Text(formatDuration(track.segmentDuration))
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
 

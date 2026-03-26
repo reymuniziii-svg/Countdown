@@ -23,7 +23,7 @@ struct SettingsView: View {
                     Label("Calendars", systemImage: "calendar")
                 }
         }
-        .frame(width: 420, height: 300)
+        .frame(width: 450, height: 400)
     }
 }
 
@@ -59,73 +59,224 @@ struct AudioSettingsView: View {
     @ObservedObject var audioManager: AudioManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Manage Soundtracks")
-                .font(.headline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Manage Soundtracks")
+                    .font(.headline)
 
-            Text("Upload up to 3 audio clips. The countdown will match the clip length (max 30 seconds). Audio fades in smoothly.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("Upload up to 3 audio clips. Drag the slider to choose which segment plays before meetings (max 30s). Audio fades in smoothly.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            ForEach(Array(audioManager.tracks.enumerated()), id: \.element.id) { index, track in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(track.name)
-                            .font(.system(size: 13, weight: .medium))
-
-                        HStack(spacing: 8) {
-                            Text("Duration: \(Int(track.duration))s")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            if track.duration > 30 {
-                                Text("(plays last 30s)")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
+                ForEach(Array(audioManager.tracks.enumerated()), id: \.element.id) { index, track in
+                    AudioTrackCard(
+                        track: track,
+                        index: index,
+                        isSelected: index == audioManager.selectedTrackIndex,
+                        isPlaying: audioManager.isPlaying,
+                        onPreview: {
+                            if audioManager.isPlaying {
+                                audioManager.stop()
+                            } else {
+                                audioManager.previewTrack(at: index)
                             }
-
-                            Text("Countdown: \(Int(track.countdownDuration))s")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        },
+                        onDelete: { audioManager.removeTrack(at: index) },
+                        onSegmentChange: { start, end in
+                            audioManager.updateSegment(at: index, start: start, end: end)
                         }
-                    }
-
-                    Spacer()
-
-                    Button {
-                        if audioManager.isPlaying {
-                            audioManager.stop()
-                        } else {
-                            audioManager.previewTrack(at: index)
-                        }
-                    } label: {
-                        Image(systemName: audioManager.isPlaying ? "stop.circle" : "play.circle")
-                    }
-                    .buttonStyle(.borderless)
-
-                    Button(role: .destructive) {
-                        audioManager.removeTrack(at: index)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.borderless)
+                    )
                 }
-                .padding(8)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(index == audioManager.selectedTrackIndex ? Color.accentColor.opacity(0.1) : Color.clear)
-                )
-            }
 
-            if audioManager.tracks.count < 3 {
-                Button("Add Audio Clip...") {
-                    audioManager.importTrack()
+                if audioManager.tracks.count < 3 {
+                    Button("Add Audio Clip...") {
+                        audioManager.importTrack()
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
+            }
+            .padding()
         }
-        .padding()
+    }
+}
+
+// MARK: - Audio Track Card with Segment Slider
+
+struct AudioTrackCard: View {
+    let track: AudioTrack
+    let index: Int
+    let isSelected: Bool
+    let isPlaying: Bool
+    let onPreview: () -> Void
+    let onDelete: () -> Void
+    let onSegmentChange: (TimeInterval, TimeInterval) -> Void
+
+    @State private var segStart: Double = 0
+    @State private var segEnd: Double = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header row
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.name)
+                        .font(.system(size: 13, weight: .medium))
+
+                    HStack(spacing: 8) {
+                        Text("Full clip: \(formatTime(track.duration))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text("Playing: \(formatTime(segEnd - segStart))")
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                    }
+                }
+
+                Spacer()
+
+                Button(action: onPreview) {
+                    Image(systemName: isPlaying ? "stop.circle" : "play.circle")
+                }
+                .buttonStyle(.borderless)
+                .help("Preview selected segment")
+
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+            }
+
+            // Segment slider
+            VStack(spacing: 4) {
+                SegmentRangeSlider(
+                    start: $segStart,
+                    end: $segEnd,
+                    range: 0...track.duration,
+                    maxSegment: 30,
+                    onChange: { onSegmentChange(segStart, segEnd) }
+                )
+
+                // Time labels
+                HStack {
+                    Text(formatTime(segStart))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(formatTime(segEnd - segStart)) selected")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.accentColor)
+                    Spacer()
+                    Text(formatTime(segEnd))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+        )
+        .onAppear {
+            segStart = track.segmentStart
+            segEnd = track.segmentEnd
+        }
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let s = Int(max(0, seconds))
+        let min = s / 60
+        let sec = s % 60
+        if min > 0 {
+            return String(format: "%d:%02d", min, sec)
+        }
+        return "\(sec)s"
+    }
+}
+
+// MARK: - Custom Range Slider
+
+struct SegmentRangeSlider: View {
+    @Binding var start: Double
+    @Binding var end: Double
+    let range: ClosedRange<Double>
+    let maxSegment: Double
+    let onChange: () -> Void
+
+    private let trackHeight: CGFloat = 6
+    private let thumbSize: CGFloat = 16
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width - thumbSize
+            let rangeSpan = range.upperBound - range.lowerBound
+
+            ZStack(alignment: .leading) {
+                // Background track
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(height: trackHeight)
+                    .padding(.horizontal, thumbSize / 2)
+
+                // Selected range highlight
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.accentColor.opacity(0.4))
+                    .frame(
+                        width: max(0, CGFloat((end - start) / rangeSpan) * width),
+                        height: trackHeight
+                    )
+                    .offset(x: CGFloat((start - range.lowerBound) / rangeSpan) * width + thumbSize / 2)
+
+                // Start thumb
+                Circle()
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                    .frame(width: thumbSize, height: thumbSize)
+                    .offset(x: CGFloat((start - range.lowerBound) / rangeSpan) * width)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let pct = max(0, min(1, value.location.x / width))
+                                var newStart = range.lowerBound + pct * rangeSpan
+                                newStart = max(range.lowerBound, min(newStart, end - 1))
+                                // Enforce max segment
+                                if end - newStart > maxSegment {
+                                    newStart = end - maxSegment
+                                }
+                                start = newStart
+                            }
+                            .onEnded { _ in onChange() }
+                    )
+
+                // End thumb
+                Circle()
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                    .frame(width: thumbSize, height: thumbSize)
+                    .offset(x: CGFloat((end - range.lowerBound) / rangeSpan) * width)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let pct = max(0, min(1, value.location.x / width))
+                                var newEnd = range.lowerBound + pct * rangeSpan
+                                newEnd = max(start + 1, min(newEnd, range.upperBound))
+                                // Enforce max segment
+                                if newEnd - start > maxSegment {
+                                    newEnd = start + maxSegment
+                                }
+                                end = newEnd
+                            }
+                            .onEnded { _ in onChange() }
+                    )
+            }
+        }
+        .frame(height: thumbSize)
     }
 }
 

@@ -108,35 +108,29 @@ final class AudioManager: ObservableObject {
         UserDefaults.standard.set(index, forKey: "selectedTrackIndex")
     }
 
+    // MARK: - Segment Editing
+
+    func updateSegment(at index: Int, start: TimeInterval, end: TimeInterval) {
+        guard index < tracks.count else { return }
+        let clamped = min(end - start, 30)
+        let clampedEnd = start + clamped
+        tracks[index].segmentStart = start
+        tracks[index].segmentEnd = clampedEnd
+        saveTracks()
+    }
+
     // MARK: - Playback
 
     func play() {
         guard let track = activeTrack else { return }
-
-        let fileURL = audioDirectory.appendingPathComponent(track.fileName)
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-
-        do {
-            player = try AVAudioPlayer(contentsOf: fileURL)
-            player?.volume = 0
-            player?.prepareToPlay()
-
-            // If clip > 30s, seek to play just the last 30s
-            if track.playbackStartOffset > 0 {
-                player?.currentTime = track.playbackStartOffset
-            }
-
-            player?.play()
-            isPlaying = true
-            startFadeIn()
-        } catch {
-            print("Audio playback error: \(error)")
-        }
+        playTrack(track)
     }
 
     func stop() {
         fadeTimer?.invalidate()
         fadeTimer = nil
+        stopTimer?.invalidate()
+        stopTimer = nil
         player?.stop()
         player = nil
         isPlaying = false
@@ -144,25 +138,35 @@ final class AudioManager: ObservableObject {
 
     func previewTrack(at index: Int) {
         stop()
-
         guard index < tracks.count else { return }
-        let track = tracks[index]
+        playTrack(tracks[index])
+    }
+
+    private var stopTimer: Timer?
+
+    private func playTrack(_ track: AudioTrack) {
         let fileURL = audioDirectory.appendingPathComponent(track.fileName)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
 
         do {
             player = try AVAudioPlayer(contentsOf: fileURL)
             player?.volume = 0
             player?.prepareToPlay()
-
-            if track.playbackStartOffset > 0 {
-                player?.currentTime = track.playbackStartOffset
-            }
-
+            player?.currentTime = track.playbackStartOffset
             player?.play()
             isPlaying = true
             startFadeIn()
+
+            // Auto-stop at segment end
+            let playDuration = track.segmentDuration
+            stopTimer?.invalidate()
+            stopTimer = Timer.scheduledTimer(withTimeInterval: playDuration, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    self?.stop()
+                }
+            }
         } catch {
-            print("Preview playback error: \(error)")
+            print("Audio playback error: \(error)")
         }
     }
 
