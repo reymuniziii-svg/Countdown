@@ -35,7 +35,10 @@ struct CountdownApp: App {
                 }
             }
         } label: {
-            menuBarLabel
+            MenuBarLabel(
+                meetingMonitor: meetingMonitor,
+                calendarService: calendarService
+            )
         }
         .menuBarExtraStyle(.window)
 
@@ -43,18 +46,21 @@ struct CountdownApp: App {
             SettingsView(calendarService: calendarService, audioManager: audioManager)
         }
     }
+}
 
-    @ViewBuilder
-    private var menuBarLabel: some View {
+// MARK: - Menu Bar Label (separate view so SwiftUI observes changes)
+
+struct MenuBarLabel: View {
+    @ObservedObject var meetingMonitor: MeetingMonitor
+    @ObservedObject var calendarService: CalendarService
+
+    var body: some View {
         if let event = meetingMonitor.activeOverlayEvent, meetingMonitor.countdownSeconds > 0 {
-            // Active countdown — show ticking seconds
             let text = "\(truncate(event.title, to: 20)) starts in \(meetingMonitor.countdownSeconds)s"
             Label(text, systemImage: "timer")
         } else if meetingMonitor.countdownSeconds == 0, meetingMonitor.activeOverlayEvent != nil {
-            // Hit zero
             Label("GO!", systemImage: "timer")
         } else {
-            // Idle — show next meeting
             let nextEvent = calendarService.events.first(where: { $0.timeUntilStart > 0 })
             if let event = nextEvent {
                 let text = "\(truncate(event.title, to: 20)) in \(event.formattedTimeUntil)"
@@ -70,6 +76,8 @@ struct CountdownApp: App {
         return String(string.prefix(length - 1)) + "..."
     }
 }
+
+// MARK: - Overlay Coordinator
 
 @MainActor
 final class OverlayCoordinator: ObservableObject {
