@@ -24,6 +24,7 @@ Inspired by [@rtwlz]
 - **Calendar integration** — reads from all calendars via EventKit (Apple Calendar, Google Calendar, Outlook — any account added in System Settings)
 - **Video link detection** — auto-detects Zoom, Google Meet, Microsoft Teams, Webex, and Slack Huddle links
 - **On/off toggle** — quick enable/disable from the menu bar dropdown
+- **Overlay toggle** — turn the full-screen overlay on or off independently (audio still plays when overlay is off)
 - **Launch at login** — optional, via Settings
 
 ## Install
@@ -33,7 +34,7 @@ Inspired by [@rtwlz]
 Requires **Xcode 15+** and **macOS 13 Ventura** or later.
 
 ```bash
-git clone https://github.com/yourusername/Countdown.git
+git clone https://github.com/reymuniziii-svg/Countdown.git
 cd Countdown
 swift build -c release
 ```
@@ -43,7 +44,7 @@ The built binary will be at `.build/release/Countdown`. Move it to `/Application
 ### From Source (Xcode)
 
 ```bash
-git clone https://github.com/yourusername/Countdown.git
+git clone https://github.com/reymuniziii-svg/Countdown.git
 cd Countdown
 open Package.swift
 ```
@@ -80,6 +81,7 @@ Menu Bar: "Team Sync in 23m" ← ticking live
 ```
 ┌─────────────────────────────┐
 │ COUNTDOWN           [ON/OFF]│
+│ Full-screen overlay [ON/OFF]│
 ├─────────────────────────────┤
 │ Next: Team Sync      in 23m │
 │ 1:1 with Alex        2:00p │

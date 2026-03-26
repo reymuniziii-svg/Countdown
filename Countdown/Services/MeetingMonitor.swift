@@ -24,6 +24,14 @@ final class MeetingMonitor: ObservableObject {
         }
     }
 
+    var overlayEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "overlayEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "overlayEnabled") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "overlayEnabled")
+            objectWillChange.send()
+        }
+    }
+
     /// Trigger lead time = active clip duration (capped at 30s), or 10s if no clip
     var triggerLeadTime: TimeInterval {
         audioManager.activeTrack?.countdownDuration ?? 10
@@ -119,10 +127,12 @@ final class MeetingMonitor: ObservableObject {
         shownEventIDs.insert(event.id)
         activeOverlayEvent = event
         countdownSeconds = secondsRemaining
-        shouldShowOverlay = true
 
-        // Start audio
+        // Start audio (plays regardless of overlay setting)
         audioManager.play()
+
+        // Only show overlay if enabled
+        shouldShowOverlay = overlayEnabled
 
         // Start countdown timer
         countdownTimer?.invalidate()

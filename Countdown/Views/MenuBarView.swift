@@ -42,20 +42,41 @@ struct MenuBarView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        HStack {
-            Text("COUNTDOWN")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("COUNTDOWN")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
 
-            Spacer()
+                Spacer()
 
-            Toggle("", isOn: Binding(
-                get: { meetingMonitor.isEnabled },
-                set: { meetingMonitor.isEnabled = $0 }
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .labelsHidden()
+                Toggle("", isOn: Binding(
+                    get: { meetingMonitor.isEnabled },
+                    set: { meetingMonitor.isEnabled = $0 }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .labelsHidden()
+            }
+
+            HStack(spacing: 4) {
+                Image(systemName: meetingMonitor.overlayEnabled ? "rectangle.inset.filled" : "rectangle")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Text("Full-screen overlay")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { meetingMonitor.overlayEnabled },
+                    set: { meetingMonitor.overlayEnabled = $0 }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+            }
         }
     }
 
