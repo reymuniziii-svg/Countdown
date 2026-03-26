@@ -9,6 +9,7 @@ final class AppController: ObservableObject {
     let meetingMonitor: MeetingMonitor
     let overlayCoordinator: OverlayCoordinator
     let statusBarManager: StatusBarManager
+    let settingsWindowController: SettingsWindowController
 
     private var hasStarted = false
 
@@ -22,6 +23,10 @@ final class AppController: ObservableObject {
         meetingMonitor = monitor
         overlayCoordinator = OverlayCoordinator(monitor: monitor)
         statusBarManager = StatusBarManager()
+        settingsWindowController = SettingsWindowController(
+            calendarService: calendar,
+            audioManager: audio
+        )
     }
 
     func start() {

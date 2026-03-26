@@ -4,8 +4,9 @@ struct MenuBarView: View {
     @ObservedObject var calendarService: CalendarService
     @ObservedObject var meetingMonitor: MeetingMonitor
     @ObservedObject var audioManager: AudioManager
+    var onOpenSettings: () -> Void = {}
+    var onQuit: () -> Void = { NSApp.terminate(nil) }
     @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
-    @Environment(\.dismiss) private var dismiss
 
     private var upcomingEvents: [MeetingEvent] {
         calendarService.events.filter { $0.timeUntilStart > -300 }
@@ -285,12 +286,16 @@ struct MenuBarView: View {
 
     private var footerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            PreferencesButton {
-                dismiss()
+            Button {
+                onOpenSettings()
+            } label: {
+                Text("Preferences...")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
 
             Button {
-                NSApplication.shared.terminate(nil)
+                onQuit()
             } label: {
                 Text("Quit Countdown")
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -340,49 +345,5 @@ struct MenuBarView: View {
         default:
             return .secondary
         }
-    }
-}
-
-// MARK: - Preferences Button (macOS 13/14 compat)
-
-private struct PreferencesButton: View {
-    var onDismiss: () -> Void
-
-    var body: some View {
-        if #available(macOS 14.0, *) {
-            PreferencesButton14(onDismiss: onDismiss)
-        } else {
-            Button {
-                onDismiss()
-                NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-            } label: {
-                Text("Preferences...")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-}
-
-@available(macOS 14.0, *)
-private struct PreferencesButton14: View {
-    @Environment(\.openSettings) private var openSettings
-    var onDismiss: () -> Void
-
-    var body: some View {
-        Button {
-            onDismiss()
-            openSettings()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                NSApp.activate(ignoringOtherApps: true)
-            }
-        } label: {
-            Text("Preferences...")
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(.plain)
     }
 }

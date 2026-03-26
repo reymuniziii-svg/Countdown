@@ -7,17 +7,6 @@ struct CountdownApp: App {
     @StateObject private var appController = AppController.shared
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuBarView(
-                calendarService: appController.calendarService,
-                meetingMonitor: appController.meetingMonitor,
-                audioManager: appController.audioManager
-            )
-        } label: {
-            StatusBarLabelBridge(statusBarManager: appController.statusBarManager)
-        }
-        .menuBarExtraStyle(.window)
-
         Settings {
             SettingsView(
                 calendarService: appController.calendarService,
@@ -121,18 +110,6 @@ final class StatusBarManager: ObservableObject {
         }
 
         return "\(hours)h\(minutes)m"
-    }
-}
-
-// MARK: - Bridge view that forces MenuBarExtra label to re-render
-
-struct StatusBarLabelBridge: View {
-    @ObservedObject var statusBarManager: StatusBarManager
-
-    var body: some View {
-        Text(statusBarManager.displayText)
-            .monospacedDigit()
-            .id(statusBarManager.displayText)
     }
 }
 
