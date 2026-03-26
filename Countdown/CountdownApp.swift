@@ -46,12 +46,22 @@ struct CountdownApp: App {
 
     @ViewBuilder
     private var menuBarLabel: some View {
-        let nextEvent = calendarService.events.first(where: { $0.timeUntilStart > 0 })
-        if let event = nextEvent {
-            let text = "\(truncate(event.title, to: 20)) in \(event.formattedTimeUntil)"
-            Label(text, systemImage: "calendar.badge.clock")
+        if let event = meetingMonitor.activeOverlayEvent, meetingMonitor.countdownSeconds > 0 {
+            // Active countdown — show ticking seconds
+            let text = "\(truncate(event.title, to: 20)) starts in \(meetingMonitor.countdownSeconds)s"
+            Label(text, systemImage: "timer")
+        } else if meetingMonitor.countdownSeconds == 0, meetingMonitor.activeOverlayEvent != nil {
+            // Hit zero
+            Label("GO!", systemImage: "timer")
         } else {
-            Label("Countdown", systemImage: "calendar.badge.clock")
+            // Idle — show next meeting
+            let nextEvent = calendarService.events.first(where: { $0.timeUntilStart > 0 })
+            if let event = nextEvent {
+                let text = "\(truncate(event.title, to: 20)) in \(event.formattedTimeUntil)"
+                Label(text, systemImage: "calendar.badge.clock")
+            } else {
+                Label("Countdown", systemImage: "calendar.badge.clock")
+            }
         }
     }
 
