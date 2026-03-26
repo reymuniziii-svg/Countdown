@@ -12,6 +12,7 @@ final class MeetingMonitor: ObservableObject {
     private let audioManager: AudioManager
     private var checkTimer: Timer?
     private var countdownTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
     private var shownEventIDs: Set<String> = []
     private var snoozedEvents: [String: Date] = [:]
     private var lastCleanupDate = Date()
@@ -40,6 +41,13 @@ final class MeetingMonitor: ObservableObject {
     init(calendarService: CalendarService, audioManager: AudioManager) {
         self.calendarService = calendarService
         self.audioManager = audioManager
+
+        calendarService.$events
+            .receive(on: RunLoop.main)
+            .sink { [weak self] events in
+                self?.handleCalendarEventsUpdated(events)
+            }
+            .store(in: &cancellables)
     }
 
     func start() {
@@ -82,6 +90,15 @@ final class MeetingMonitor: ObservableObject {
     }
 
     // MARK: - Meeting Check
+
+    private func handleCalendarEventsUpdated(_ events: [MeetingEvent]) {
+        if let activeOverlayEvent,
+           !events.contains(where: { $0.id == activeOverlayEvent.id }) {
+            dismiss()
+        }
+
+        checkUpcomingMeetings()
+    }
 
     private func checkUpcomingMeetings() {
         guard isEnabled else { return }
