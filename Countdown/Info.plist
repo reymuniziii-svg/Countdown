@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSUIElement</key>
+	<true/>
+	<key>CFBundleName</key>
+	<string>Countdown</string>
+	<key>CFBundleDisplayName</key>
+	<string>Countdown</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.countdown.app</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleExecutable</key>
+	<string>Countdown</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Countdown needs access to your calendars to show upcoming meetings and play countdown audio before they start.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Countdown needs access to your calendars to show upcoming meetings and play countdown audio before they start.</string>
+</dict>
+</plist>
