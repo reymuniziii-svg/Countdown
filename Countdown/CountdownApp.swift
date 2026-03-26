@@ -3,76 +3,52 @@ import SwiftUI
 
 @main
 struct CountdownApp: App {
-    @StateObject private var calendarService: CalendarService
-    @StateObject private var audioManager: AudioManager
-    @StateObject private var meetingMonitor: MeetingMonitor
-    @StateObject private var overlayCoordinator: OverlayCoordinator
-    @StateObject private var statusBarManager: StatusBarManager
-
-    init() {
-        let calendar = CalendarService()
-        let audio = AudioManager()
-        let monitor = MeetingMonitor(calendarService: calendar, audioManager: audio)
-        let coordinator = OverlayCoordinator(monitor: monitor)
-        let statusBar = StatusBarManager()
-        _calendarService = StateObject(wrappedValue: calendar)
-        _audioManager = StateObject(wrappedValue: audio)
-        _meetingMonitor = StateObject(wrappedValue: monitor)
-        _overlayCoordinator = StateObject(wrappedValue: coordinator)
-        _statusBarManager = StateObject(wrappedValue: statusBar)
-    }
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var appController = AppController.shared
 
     var body: some Scene {
         MenuBarExtra {
             MenuBarView(
-                calendarService: calendarService,
-                meetingMonitor: meetingMonitor,
-                audioManager: audioManager
+                calendarService: appController.calendarService,
+                meetingMonitor: appController.meetingMonitor,
+                audioManager: appController.audioManager
             )
-            .onAppear {
-                Task {
-                    await calendarService.requestAccess()
-                    calendarService.startMonitoring()
-                    meetingMonitor.start()
-                    overlayCoordinator.startObserving()
-                    statusBarManager.configure(
-                        monitor: meetingMonitor,
-                        calendarService: calendarService
-                    )
-                }
-            }
         } label: {
-            StatusBarLabelBridge(statusBarManager: statusBarManager)
+            StatusBarLabelBridge(statusBarManager: appController.statusBarManager)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView(calendarService: calendarService, audioManager: audioManager)
+            SettingsView(
+                calendarService: appController.calendarService,
+                audioManager: appController.audioManager
+            )
         }
     }
 }
 
-// MARK: - StatusBarManager (computes the title string reactively)
+// MARK: - StatusBarManager
 
 @MainActor
 final class StatusBarManager: ObservableObject {
     @Published var displayText: String = "Countdown"
-    @Published var iconName: String = "calendar.badge.clock"
 
     private var cancellables = Set<AnyCancellable>()
     private var updateTimer: Timer?
 
     func configure(monitor: MeetingMonitor, calendarService: CalendarService) {
-        // React to countdown ticks
+        updateTimer?.invalidate()
+        updateTimer = nil
+        cancellables.removeAll()
+
         monitor.$countdownSeconds
             .combineLatest(monitor.$activeOverlayEvent)
             .receive(on: RunLoop.main)
-            .sink { [weak self, weak calendarService] seconds, event in
+            .sink { [weak self] seconds, event in
                 self?.update(seconds: seconds, event: event, calendarService: calendarService)
             }
             .store(in: &cancellables)
 
-        // React to calendar events loading
         calendarService.$events
             .receive(on: RunLoop.main)
             .sink { [weak self, weak monitor] _ in
@@ -85,8 +61,7 @@ final class StatusBarManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Refresh idle text every 30s ("in 23m" → "in 22m")
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self, weak monitor, weak calendarService] _ in
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self, weak monitor] _ in
             Task { @MainActor in
                 guard let monitor else { return }
                 self?.update(
@@ -96,27 +71,56 @@ final class StatusBarManager: ObservableObject {
                 )
             }
         }
+
+        update(
+            seconds: monitor.countdownSeconds,
+            event: monitor.activeOverlayEvent,
+            calendarService: calendarService
+        )
     }
 
     private func update(seconds: Int, event: MeetingEvent?, calendarService: CalendarService?) {
         if let event, seconds > 0 {
-            displayText = "\(truncate(event.title, to: 18)) starts in \(seconds)s"
-            iconName = "timer"
+            displayText = "\(truncate(event.title, to: 10)) in \(formatCountdown(seconds))"
         } else if seconds == 0, event != nil {
             displayText = "GO!"
-            iconName = "timer"
         } else if let next = calendarService?.events.first(where: { $0.timeUntilStart > 0 }) {
-            displayText = "\(truncate(next.title, to: 18)) in \(next.formattedTimeUntil)"
-            iconName = "calendar.badge.clock"
+            displayText = "\(truncate(next.title, to: 10)) in \(formatUpcoming(next.timeUntilStart))"
         } else {
             displayText = "Countdown"
-            iconName = "calendar.badge.clock"
         }
     }
 
     private func truncate(_ string: String, to length: Int) -> String {
         if string.count <= length { return string }
         return String(string.prefix(length - 1)) + "…"
+    }
+
+    private func formatCountdown(_ seconds: Int) -> String {
+        let boundedSeconds = max(0, seconds)
+        let minutes = boundedSeconds / 60
+        let remainingSeconds = boundedSeconds % 60
+        return String(format: "%d:%02d", minutes, remainingSeconds)
+    }
+
+    private func formatUpcoming(_ interval: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(interval.rounded(.up)))
+        if totalSeconds < 60 {
+            return formatCountdown(totalSeconds)
+        }
+
+        let totalMinutes = Int(ceil(Double(totalSeconds) / 60))
+        if totalMinutes < 60 {
+            return "\(totalMinutes)m"
+        }
+
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if minutes == 0 {
+            return "\(hours)h"
+        }
+
+        return "\(hours)h\(minutes)m"
     }
 }
 
@@ -126,13 +130,9 @@ struct StatusBarLabelBridge: View {
     @ObservedObject var statusBarManager: StatusBarManager
 
     var body: some View {
-        // Use HStack instead of Label — Label in menu bar context often only renders the icon
-        HStack(spacing: 4) {
-            Image(systemName: statusBarManager.iconName)
-            Text(statusBarManager.displayText)
-        }
-        // Force SwiftUI to treat each state as a new view
-        .id("\(statusBarManager.iconName)-\(statusBarManager.displayText)")
+        Text(statusBarManager.displayText)
+            .monospacedDigit()
+            .id(statusBarManager.displayText)
     }
 }
 

@@ -25,21 +25,33 @@ Inspired by [@rtwlz]
 - **Video link detection** — auto-detects Zoom, Google Meet, Microsoft Teams, Webex, and Slack Huddle links
 - **On/off toggle** — quick enable/disable from the menu bar dropdown
 - **Overlay toggle** — turn the full-screen overlay on or off independently (audio still plays when overlay is off)
-- **Launch at login** — optional, via Settings
+- **Launch at login** — optional, via Settings after installing `Countdown.app`
 
 ## Install
 
-### From Source (Swift Package Manager)
+### Build a Real macOS App Bundle
 
 Requires **Xcode 15+** and **macOS 13 Ventura** or later.
 
 ```bash
 git clone https://github.com/reymuniziii-svg/Countdown.git
 cd Countdown
-swift build -c release
+./scripts/build-app.sh
 ```
 
-The built binary will be at `.build/release/Countdown`. Move it to `/Applications` or run directly.
+The built app bundle will be at `dist/Countdown.app`.
+
+To install it into `/Applications` and create a desktop alias:
+
+```bash
+./scripts/install-app.sh
+```
+
+To skip desktop alias creation:
+
+```bash
+./scripts/install-app.sh --no-alias
+```
 
 ### From Source (Xcode)
 
@@ -49,11 +61,11 @@ cd Countdown
 open Package.swift
 ```
 
-This opens the project in Xcode. Hit **Cmd+R** to build and run.
+This opens the package in Xcode. For a reusable app bundle, run `./scripts/build-app.sh` afterwards.
 
 ## Quick Start
 
-1. **Launch Countdown** — a calendar icon appears in your menu bar
+1. **Launch Countdown.app** — a live countdown appears in your menu bar
 2. **Grant calendar access** — click the menu bar icon and approve the permission prompt
 3. **Add a soundtrack** — click the menu bar icon → click "Add soundtrack" → pick an audio file
 4. **Wait for a meeting** — the countdown triggers automatically at T-minus [clip length] before any meeting with a video link
@@ -131,7 +143,11 @@ No OAuth setup needed — if it shows up in Apple Calendar, Countdown can see it
 
 ```
 Countdown/
-├── CountdownApp.swift          # App entry, MenuBarExtra, overlay coordinator
+├── App/
+│   ├── AppController.swift     # Launch-time wiring for services
+│   ├── AppDelegate.swift       # Starts monitoring when the app launches
+│   └── LaunchAtLoginManager.swift # LaunchAgent-based login item support
+├── CountdownApp.swift          # App entry and menu bar scene
 ├── Models/
 │   ├── MeetingEvent.swift      # EKEvent wrapper
 │   └── AudioTrack.swift        # Audio clip model
@@ -145,6 +161,9 @@ Countdown/
     ├── OverlayWindow.swift     # Multi-monitor NSPanel
     ├── OverlayView.swift       # Full-screen countdown
     └── SettingsView.swift      # Preferences window
+scripts/
+├── build-app.sh                # Builds Countdown.app into dist/
+└── install-app.sh              # Installs app bundle into /Applications
 ```
 
 ## Credits

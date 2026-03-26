@@ -14,6 +14,7 @@ build/
 .swiftpm/
 Packages/
 Package.resolved
+dist/
 
 # macOS
 .DS_Store

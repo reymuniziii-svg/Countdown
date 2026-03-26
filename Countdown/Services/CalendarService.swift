@@ -24,6 +24,27 @@ final class CalendarService: ObservableObject {
         }
     }
 
+    var hasCalendarAccess: Bool {
+        if #available(macOS 14.0, *) {
+            return authorizationStatus == .fullAccess || authorizationStatus == .authorized
+        }
+
+        return authorizationStatus == .authorized
+    }
+
+    func prepareForLaunch() async {
+        updateAuthorizationStatus()
+
+        if authorizationStatus == .notDetermined {
+            await requestAccess()
+            return
+        }
+
+        if hasCalendarAccess {
+            startMonitoring()
+        }
+    }
+
     func requestAccess() async {
         if #available(macOS 14.0, *) {
             do {
@@ -51,11 +72,23 @@ final class CalendarService: ObservableObject {
     }
 
     func startMonitoring() {
+        guard hasCalendarAccess else {
+            events = []
+            availableCalendars = []
+            return
+        }
+
         fetchEvents()
         startAutoRefresh()
     }
 
     func fetchEvents() {
+        guard hasCalendarAccess else {
+            events = []
+            availableCalendars = []
+            return
+        }
+
         let now = Date()
         let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: now)!
 

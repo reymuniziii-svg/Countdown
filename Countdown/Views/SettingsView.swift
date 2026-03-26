@@ -1,5 +1,4 @@
 import EventKit
-import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
@@ -8,7 +7,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            GeneralSettingsView()
+            GeneralSettingsView(calendarService: calendarService)
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
@@ -30,26 +29,58 @@ struct SettingsView: View {
 // MARK: - General
 
 struct GeneralSettingsView: View {
-    @AppStorage("launchAtLogin") private var launchAtLogin = false
+    @ObservedObject var calendarService: CalendarService
+    @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
 
     var body: some View {
         Form {
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { newValue in
-                    if #available(macOS 13.0, *) {
-                        do {
-                            if newValue {
-                                try SMAppService.mainApp.register()
-                            } else {
-                                try SMAppService.mainApp.unregister()
-                            }
-                        } catch {
-                            print("Launch at login error: \(error)")
-                        }
-                    }
-                }
+            Toggle(
+                "Launch at login",
+                isOn: Binding(
+                    get: { launchAtLoginManager.isEnabled },
+                    set: { launchAtLoginManager.setEnabled($0) }
+                )
+            )
+            .disabled(!launchAtLoginManager.canManageLaunchAtLogin)
+
+            Text("Install Countdown.app before enabling this so macOS can relaunch it reliably.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Section("Diagnostics") {
+                LabeledContent("App Bundle", value: bundleStatusLabel)
+                LabeledContent(
+                    "Calendar Access",
+                    value: calendarService.hasCalendarAccess ? "Granted" : "Needs access"
+                )
+                LabeledContent(
+                    "Launch at Login",
+                    value: launchAtLoginManager.isEnabled ? "Enabled" : "Disabled"
+                )
+                Text(Bundle.main.bundleURL.path)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+
+            if let lastError = launchAtLoginManager.lastError {
+                Text(lastError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
         .padding()
+    }
+
+    private var bundleStatusLabel: String {
+        let bundlePath = Bundle.main.bundleURL.path
+        if bundlePath.hasPrefix("/Applications/") {
+            return "Installed"
+        }
+        if Bundle.main.bundleURL.pathExtension == "app" {
+            return "Bundle"
+        }
+        return "Development"
     }
 }
 

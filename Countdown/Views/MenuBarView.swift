@@ -4,6 +4,7 @@ struct MenuBarView: View {
     @ObservedObject var calendarService: CalendarService
     @ObservedObject var meetingMonitor: MeetingMonitor
     @ObservedObject var audioManager: AudioManager
+    @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
     @Environment(\.dismiss) private var dismiss
 
     private var upcomingEvents: [MeetingEvent] {
@@ -17,7 +18,7 @@ struct MenuBarView: View {
 
             Divider().padding(.vertical, 6)
 
-            if calendarService.authorizationStatus != .authorized {
+            if !calendarService.hasCalendarAccess {
                 calendarAccessSection
             } else if upcomingEvents.isEmpty {
                 noEventsSection
@@ -29,6 +30,10 @@ struct MenuBarView: View {
 
             // Soundtrack section
             soundtrackSection
+
+            Divider().padding(.vertical, 6)
+
+            diagnosticsSection
 
             Divider().padding(.vertical, 6)
 
@@ -254,6 +259,30 @@ struct MenuBarView: View {
 
     // MARK: - Footer
 
+    private var diagnosticsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Diagnostics", systemImage: "checklist")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            diagnosticRow(
+                label: "App",
+                value: appBundleStatus,
+                color: appBundleStatusColor
+            )
+            diagnosticRow(
+                label: "Calendar",
+                value: calendarService.hasCalendarAccess ? "Granted" : "Needs access",
+                color: calendarService.hasCalendarAccess ? .green : .orange
+            )
+            diagnosticRow(
+                label: "Login",
+                value: launchAtLoginManager.isEnabled ? "Enabled" : "Off",
+                color: launchAtLoginManager.isEnabled ? .green : .secondary
+            )
+        }
+    }
+
     private var footerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             PreferencesButton {
@@ -275,6 +304,42 @@ struct MenuBarView: View {
     private func formatDuration(_ seconds: TimeInterval) -> String {
         let s = Int(seconds)
         return "\(s)s"
+    }
+
+    private func diagnosticRow(label: String, value: String, color: Color) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Text(value)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(color)
+        }
+    }
+
+    private var appBundleStatus: String {
+        let bundlePath = Bundle.main.bundleURL.path
+        if bundlePath.hasPrefix("/Applications/") {
+            return "Installed"
+        }
+        if Bundle.main.bundleURL.pathExtension == "app" {
+            return "Bundle"
+        }
+        return "Dev Run"
+    }
+
+    private var appBundleStatusColor: Color {
+        switch appBundleStatus {
+        case "Installed":
+            return .green
+        case "Bundle":
+            return .orange
+        default:
+            return .secondary
+        }
     }
 }
 
