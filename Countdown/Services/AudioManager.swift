@@ -129,9 +129,9 @@ final class AudioManager: ObservableObject {
 
     // MARK: - Playback
 
-    func play() {
+    func play(countdownSecondsRemaining: Int? = nil) {
         guard let track = activeTrack else { return }
-        playTrack(track)
+        playTrack(track, countdownSecondsRemaining: countdownSecondsRemaining)
     }
 
     func stop() {
@@ -147,28 +147,36 @@ final class AudioManager: ObservableObject {
     func previewTrack(at index: Int) {
         stop()
         guard index < tracks.count else { return }
-        playTrack(tracks[index])
+        playTrack(tracks[index], countdownSecondsRemaining: nil)
     }
 
     private var stopTimer: Timer?
 
-    private func playTrack(_ track: AudioTrack) {
+    private func playTrack(_ track: AudioTrack, countdownSecondsRemaining: Int?) {
         let fileURL = audioDirectory.appendingPathComponent(track.fileName)
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
 
         do {
+            let segmentDuration = track.segmentDuration
+            let remainingDuration = countdownSecondsRemaining.map {
+                min(segmentDuration, max(0, TimeInterval($0)))
+            } ?? segmentDuration
+
+            guard remainingDuration > 0 else { return }
+
+            let skippedDuration = max(0, segmentDuration - remainingDuration)
+            let playbackStart = min(track.playbackStartOffset + skippedDuration, track.playbackEndOffset)
+
             player = try AVAudioPlayer(contentsOf: fileURL)
             player?.volume = 0
             player?.prepareToPlay()
-            player?.currentTime = track.playbackStartOffset
+            player?.currentTime = playbackStart
             player?.play()
             isPlaying = true
             startFadeIn()
 
-            // Auto-stop at segment end
-            let playDuration = track.segmentDuration
             stopTimer?.invalidate()
-            stopTimer = Timer.scheduledTimer(withTimeInterval: playDuration, repeats: false) { [weak self] _ in
+            stopTimer = Timer.scheduledOnMainRunLoop(interval: remainingDuration, repeats: false) { [weak self] _ in
                 Task { @MainActor in
                     self?.stop()
                 }
@@ -187,7 +195,7 @@ final class AudioManager: ObservableObject {
         let volumeStep = Float(1.0) / Float(Self.fadeInSteps)
         var currentStep = 0
 
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: stepInterval, repeats: true) { [weak self] timer in
+        fadeTimer = Timer.scheduledOnMainRunLoop(interval: stepInterval, repeats: true) { [weak self] timer in
             Task { @MainActor in
                 guard let self, let player = self.player else {
                     timer.invalidate()

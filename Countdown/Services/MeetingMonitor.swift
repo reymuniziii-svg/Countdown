@@ -52,7 +52,8 @@ final class MeetingMonitor: ObservableObject {
 
     func start() {
         checkTimer?.invalidate()
-        checkTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        // A 1s cadence keeps countdown/audio alignment tight without relying on coarse polling.
+        checkTimer = Timer.scheduledOnMainRunLoop(interval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkUpcomingMeetings()
             }
@@ -145,8 +146,8 @@ final class MeetingMonitor: ObservableObject {
         activeOverlayEvent = event
         countdownSeconds = secondsRemaining
 
-        if audioManager.countdownSoundEnabled {
-            audioManager.play()
+        if audioManager.countdownSoundEnabled, secondsRemaining > 0 {
+            audioManager.play(countdownSecondsRemaining: secondsRemaining)
         }
 
         // Only show overlay if enabled
@@ -154,7 +155,7 @@ final class MeetingMonitor: ObservableObject {
 
         // Start countdown timer
         countdownTimer?.invalidate()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        countdownTimer = Timer.scheduledOnMainRunLoop(interval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 if self.countdownSeconds > 0 {

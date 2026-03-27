@@ -148,7 +148,7 @@ final class CalendarService: ObservableObject {
 
     private func startAutoRefresh() {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledOnMainRunLoop(interval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.fetchEvents()
             }

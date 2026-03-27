@@ -56,7 +56,7 @@ final class StatusBarManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self, weak monitor] _ in
+        updateTimer = Timer.scheduledOnMainRunLoop(interval: 30, repeats: true) { [weak self, weak monitor] _ in
             Task { @MainActor in
                 guard let monitor else { return }
                 self?.update(
@@ -138,7 +138,7 @@ final class StatusBarManager: ObservableObject {
         }
 
         isAlertHighlighted = true
-        flashTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        flashTimer = Timer.scheduledOnMainRunLoop(interval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.isAlertHighlighted.toggle()
             }
