@@ -79,6 +79,19 @@ struct GeneralSettingsView: View {
                     )
                 }
 
+                settingsCard("Preview") {
+                    Text("Run a sample countdown named All Hands to test the menu bar, overlay, flashing state, and soundtrack.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button("Run Test Countdown") {
+                        meetingMonitor.startTestCountdown(title: "All Hands")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                }
+
                 settingsCard("Diagnostics") {
                     diagnosticsRow("App Bundle", value: bundleStatusLabel)
                     diagnosticsRow(

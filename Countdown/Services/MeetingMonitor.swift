@@ -12,10 +12,12 @@ final class MeetingMonitor: ObservableObject {
     private let audioManager: AudioManager
     private var checkTimer: Timer?
     private var countdownTimer: Timer?
+    private var autoDismissTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var shownEventIDs: Set<String> = []
     private var snoozedEvents: [String: Date] = [:]
     private var lastCleanupDate = Date()
+    private var activeCountdownIsTest = false
 
     var isEnabled: Bool {
         get { CountdownPreferences.bool(forKey: CountdownPreferences.countdownEnabled, default: true) }
@@ -66,15 +68,20 @@ final class MeetingMonitor: ObservableObject {
         checkTimer = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
+        autoDismissTimer?.invalidate()
+        autoDismissTimer = nil
     }
 
     func dismiss() {
         countdownTimer?.invalidate()
         countdownTimer = nil
+        autoDismissTimer?.invalidate()
+        autoDismissTimer = nil
         audioManager.stop()
         shouldShowOverlay = false
         activeOverlayEvent = nil
         countdownSeconds = 0
+        activeCountdownIsTest = false
     }
 
     func snooze(minutes: Int = 1) {
@@ -88,6 +95,24 @@ final class MeetingMonitor: ObservableObject {
         guard let event = activeOverlayEvent, let url = event.videoLink else { return }
         NSWorkspace.shared.open(url)
         dismiss()
+    }
+
+    func startTestCountdown(title: String = "All Hands") {
+        dismiss()
+
+        let leadTimeSeconds = max(1, Int(ceil(triggerLeadTime)))
+        let now = Date()
+        let testEvent = MeetingEvent(
+            id: "test_\(UUID().uuidString)",
+            title: title,
+            startDate: now.addingTimeInterval(TimeInterval(leadTimeSeconds)),
+            endDate: now.addingTimeInterval(TimeInterval(leadTimeSeconds + 1800)),
+            calendar: "Countdown Preview",
+            videoLink: nil,
+            isAllDay: false
+        )
+
+        triggerCountdown(for: testEvent, secondsRemaining: leadTimeSeconds, isTest: true)
     }
 
     // MARK: - Meeting Check
@@ -129,19 +154,20 @@ final class MeetingMonitor: ObservableObject {
 
             // Trigger when within lead time window
             if timeUntil > 0 && timeUntil <= leadTime {
-                triggerCountdown(for: event, secondsRemaining: Int(ceil(timeUntil)))
+                triggerCountdown(for: event, secondsRemaining: Int(ceil(timeUntil)), isTest: false)
                 return
             }
 
             // Catch events that just started (within 60s)
             if timeUntil <= 0 && timeUntil > -60 {
-                triggerCountdown(for: event, secondsRemaining: 0)
+                triggerCountdown(for: event, secondsRemaining: 0, isTest: false)
                 return
             }
         }
     }
 
-    private func triggerCountdown(for event: MeetingEvent, secondsRemaining: Int) {
+    private func triggerCountdown(for event: MeetingEvent, secondsRemaining: Int, isTest: Bool) {
+        activeCountdownIsTest = isTest
         shownEventIDs.insert(event.id)
         activeOverlayEvent = event
         countdownSeconds = secondsRemaining
@@ -161,7 +187,19 @@ final class MeetingMonitor: ObservableObject {
                 if self.countdownSeconds > 0 {
                     self.countdownSeconds -= 1
                 }
-                // Don't auto-dismiss — let the user dismiss or join
+                if self.countdownSeconds <= 0, self.activeCountdownIsTest {
+                    self.scheduleTestAutoDismissIfNeeded()
+                }
+            }
+        }
+    }
+
+    private func scheduleTestAutoDismissIfNeeded() {
+        guard autoDismissTimer == nil else { return }
+
+        autoDismissTimer = Timer.scheduledOnMainRunLoop(interval: 2, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.dismiss()
             }
         }
     }
