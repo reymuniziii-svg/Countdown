@@ -25,7 +25,8 @@ final class AppController: ObservableObject {
         statusBarManager = StatusBarManager()
         settingsWindowController = SettingsWindowController(
             calendarService: calendar,
-            audioManager: audio
+            audioManager: audio,
+            meetingMonitor: monitor
         )
     }
 

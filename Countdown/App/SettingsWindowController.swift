@@ -5,18 +5,25 @@ import SwiftUI
 final class SettingsWindowController {
     private let calendarService: CalendarService
     private let audioManager: AudioManager
+    private let meetingMonitor: MeetingMonitor
     private var window: NSWindow?
 
-    init(calendarService: CalendarService, audioManager: AudioManager) {
+    init(
+        calendarService: CalendarService,
+        audioManager: AudioManager,
+        meetingMonitor: MeetingMonitor
+    ) {
         self.calendarService = calendarService
         self.audioManager = audioManager
+        self.meetingMonitor = meetingMonitor
     }
 
     func show() {
         if window == nil {
             let rootView = SettingsView(
                 calendarService: calendarService,
-                audioManager: audioManager
+                audioManager: audioManager,
+                meetingMonitor: meetingMonitor
             )
 
             let hostingController = NSHostingController(rootView: rootView)

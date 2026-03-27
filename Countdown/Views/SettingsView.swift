@@ -4,10 +4,15 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var calendarService: CalendarService
     @ObservedObject var audioManager: AudioManager
+    @ObservedObject var meetingMonitor: MeetingMonitor
 
     var body: some View {
         TabView {
-            GeneralSettingsView(calendarService: calendarService)
+            GeneralSettingsView(
+                calendarService: calendarService,
+                audioManager: audioManager,
+                meetingMonitor: meetingMonitor
+            )
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
@@ -30,46 +35,138 @@ struct SettingsView: View {
 
 struct GeneralSettingsView: View {
     @ObservedObject var calendarService: CalendarService
+    @ObservedObject var audioManager: AudioManager
+    @ObservedObject var meetingMonitor: MeetingMonitor
     @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
+    @AppStorage(CountdownPreferences.menuBarFlashEnabled) private var menuBarFlashEnabled = true
 
     var body: some View {
-        Form {
-            Toggle(
-                "Launch at login",
-                isOn: Binding(
-                    get: { launchAtLoginManager.isEnabled },
-                    set: { launchAtLoginManager.setEnabled($0) }
-                )
-            )
-            .disabled(!launchAtLoginManager.canManageLaunchAtLogin)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                settingsCard("Behavior") {
+                    settingsToggle(
+                        title: "Launch at login",
+                        detail: "Start Countdown automatically after you sign in to macOS.",
+                        isOn: Binding(
+                            get: { launchAtLoginManager.isEnabled },
+                            set: { launchAtLoginManager.setEnabled($0) }
+                        ),
+                        isDisabled: !launchAtLoginManager.canManageLaunchAtLogin
+                    )
 
-            Text("Install Countdown.app before enabling this so macOS can relaunch it reliably.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                    settingsToggle(
+                        title: "Full-screen countdown",
+                        detail: "Show the full-screen dramatic overlay before meetings.",
+                        isOn: Binding(
+                            get: { meetingMonitor.overlayEnabled },
+                            set: { meetingMonitor.overlayEnabled = $0 }
+                        )
+                    )
 
-            Section("Diagnostics") {
-                LabeledContent("App Bundle", value: bundleStatusLabel)
-                LabeledContent(
-                    "Calendar Access",
-                    value: calendarService.hasCalendarAccess ? "Granted" : "Needs access"
-                )
-                LabeledContent(
-                    "Launch at Login",
-                    value: launchAtLoginManager.isEnabled ? "Enabled" : "Disabled"
-                )
-                Text(Bundle.main.bundleURL.path)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                    settingsToggle(
+                        title: "Flash red in menu bar",
+                        detail: "Make the menu bar countdown flash red during the last 10 seconds.",
+                        isOn: $menuBarFlashEnabled
+                    )
+
+                    settingsToggle(
+                        title: "Sound effect",
+                        detail: "Play your selected soundtrack before meetings.",
+                        isOn: Binding(
+                            get: { audioManager.countdownSoundEnabled },
+                            set: { audioManager.countdownSoundEnabled = $0 }
+                        )
+                    )
+                }
+
+                settingsCard("Diagnostics") {
+                    diagnosticsRow("App Bundle", value: bundleStatusLabel)
+                    diagnosticsRow(
+                        "Calendar Access",
+                        value: calendarService.hasCalendarAccess ? "Granted" : "Needs access"
+                    )
+                    diagnosticsRow(
+                        "Launch at Login",
+                        value: launchAtLoginManager.isEnabled ? "Enabled" : "Disabled"
+                    )
+                    diagnosticsRow(
+                        "Sound Effect",
+                        value: audioManager.countdownSoundEnabled ? "Enabled" : "Muted"
+                    )
+                    Text(Bundle.main.bundleURL.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .padding(.top, 4)
+                }
+
+                if let lastError = launchAtLoginManager.lastError {
+                    Text(lastError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 2)
+                }
             }
-
-            if let lastError = launchAtLoginManager.lastError {
-                Text(lastError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
+            .padding(20)
         }
-        .padding()
+    }
+
+    @ViewBuilder
+    private func settingsCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private func settingsToggle(
+        title: String,
+        detail: String,
+        isOn: Binding<Bool>,
+        isDisabled: Bool = false
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .disabled(isDisabled)
+        }
+    }
+
+    private func diagnosticsRow(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.semibold)
+        }
+        .font(.system(size: 13))
     }
 
     private var bundleStatusLabel: String {

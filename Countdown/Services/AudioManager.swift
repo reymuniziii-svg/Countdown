@@ -16,6 +16,14 @@ final class AudioManager: ObservableObject {
     private static let fadeInDuration: TimeInterval = 3.0
     private static let fadeInSteps = 30 // volume updates during fade
 
+    var countdownSoundEnabled: Bool {
+        get { CountdownPreferences.bool(forKey: CountdownPreferences.countdownSoundEnabled, default: true) }
+        set {
+            CountdownPreferences.set(newValue, forKey: CountdownPreferences.countdownSoundEnabled)
+            objectWillChange.send()
+        }
+    }
+
     private var audioDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = appSupport.appendingPathComponent("Countdown/Audio", isDirectory: true)

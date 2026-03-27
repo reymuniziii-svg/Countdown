@@ -18,17 +18,17 @@ final class MeetingMonitor: ObservableObject {
     private var lastCleanupDate = Date()
 
     var isEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: "countdownEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "countdownEnabled") }
+        get { CountdownPreferences.bool(forKey: CountdownPreferences.countdownEnabled, default: true) }
         set {
-            UserDefaults.standard.set(newValue, forKey: "countdownEnabled")
+            CountdownPreferences.set(newValue, forKey: CountdownPreferences.countdownEnabled)
             objectWillChange.send()
         }
     }
 
     var overlayEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: "overlayEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "overlayEnabled") }
+        get { CountdownPreferences.bool(forKey: CountdownPreferences.overlayEnabled, default: true) }
         set {
-            UserDefaults.standard.set(newValue, forKey: "overlayEnabled")
+            CountdownPreferences.set(newValue, forKey: CountdownPreferences.overlayEnabled)
             objectWillChange.send()
         }
     }
@@ -145,8 +145,9 @@ final class MeetingMonitor: ObservableObject {
         activeOverlayEvent = event
         countdownSeconds = secondsRemaining
 
-        // Start audio (plays regardless of overlay setting)
-        audioManager.play()
+        if audioManager.countdownSoundEnabled {
+            audioManager.play()
+        }
 
         // Only show overlay if enabled
         shouldShowOverlay = overlayEnabled

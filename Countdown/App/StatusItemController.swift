@@ -40,13 +40,17 @@ final class StatusItemController: NSObject {
         }
 
         statusBarManager.$displayText
+            .combineLatest(statusBarManager.$isAlertHighlighted)
             .receive(on: RunLoop.main)
-            .sink { [weak self] text in
-                self?.applyTitle(text)
+            .sink { [weak self] text, isAlertHighlighted in
+                self?.applyTitle(text, isAlertHighlighted: isAlertHighlighted)
             }
             .store(in: &cancellables)
 
-        applyTitle(statusBarManager.displayText)
+        applyTitle(
+            statusBarManager.displayText,
+            isAlertHighlighted: statusBarManager.isAlertHighlighted
+        )
     }
 
     @objc private func togglePopover(_ sender: AnyObject?) {
@@ -68,12 +72,12 @@ final class StatusItemController: NSObject {
         openSettings()
     }
 
-    private func applyTitle(_ title: String) {
+    private func applyTitle(_ title: String, isAlertHighlighted: Bool) {
         guard let button = statusItem.button else { return }
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium),
-            .foregroundColor: NSColor.labelColor
+            .foregroundColor: isAlertHighlighted ? NSColor.systemRed : NSColor.labelColor
         ]
 
         button.attributedTitle = NSAttributedString(string: title, attributes: attributes)

@@ -10,7 +10,8 @@ struct CountdownApp: App {
         Settings {
             SettingsView(
                 calendarService: appController.calendarService,
-                audioManager: appController.audioManager
+                audioManager: appController.audioManager,
+                meetingMonitor: appController.meetingMonitor
             )
         }
     }
@@ -21,13 +22,18 @@ struct CountdownApp: App {
 @MainActor
 final class StatusBarManager: ObservableObject {
     @Published var displayText: String = "Countdown"
+    @Published var isAlertHighlighted = false
 
     private var cancellables = Set<AnyCancellable>()
     private var updateTimer: Timer?
+    private var flashTimer: Timer?
 
     func configure(monitor: MeetingMonitor, calendarService: CalendarService) {
         updateTimer?.invalidate()
         updateTimer = nil
+        flashTimer?.invalidate()
+        flashTimer = nil
+        isAlertHighlighted = false
         cancellables.removeAll()
 
         monitor.$countdownSeconds
@@ -71,12 +77,16 @@ final class StatusBarManager: ObservableObject {
     private func update(seconds: Int, event: MeetingEvent?, calendarService: CalendarService?) {
         if let event, seconds > 0 {
             displayText = "\(truncate(event.title, to: 10)) in \(formatCountdown(seconds))"
+            updateAlertState(seconds: seconds)
         } else if seconds == 0, event != nil {
             displayText = "GO!"
+            updateAlertState(seconds: 0)
         } else if let next = calendarService?.events.first(where: { $0.timeUntilStart > 0 }) {
             displayText = "\(truncate(next.title, to: 10)) in \(formatUpcoming(next.timeUntilStart))"
+            stopFlashing()
         } else {
             displayText = "Countdown"
+            stopFlashing()
         }
     }
 
@@ -110,6 +120,35 @@ final class StatusBarManager: ObservableObject {
         }
 
         return "\(hours)h\(minutes)m"
+    }
+
+    private func updateAlertState(seconds: Int) {
+        let flashEnabled = CountdownPreferences.bool(
+            forKey: CountdownPreferences.menuBarFlashEnabled,
+            default: true
+        )
+
+        guard flashEnabled, seconds <= 10 else {
+            stopFlashing()
+            return
+        }
+
+        if flashTimer != nil {
+            return
+        }
+
+        isAlertHighlighted = true
+        flashTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.isAlertHighlighted.toggle()
+            }
+        }
+    }
+
+    private func stopFlashing() {
+        flashTimer?.invalidate()
+        flashTimer = nil
+        isAlertHighlighted = false
     }
 }
 
