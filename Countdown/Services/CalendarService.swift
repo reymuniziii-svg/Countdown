@@ -45,6 +45,18 @@ final class CalendarService: ObservableObject {
         }
     }
 
+    func refreshState() {
+        updateAuthorizationStatus()
+
+        if hasCalendarAccess {
+            fetchEvents()
+            startAutoRefresh()
+        } else {
+            events = []
+            availableCalendars = []
+        }
+    }
+
     func requestAccess() async {
         if #available(macOS 14.0, *) {
             do {

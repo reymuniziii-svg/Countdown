@@ -328,23 +328,76 @@ struct CalendarSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            List {
-                ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { cal in
-                    Toggle(cal.title, isOn: Binding(
-                        get: { enabledIDs.contains(cal.calendarIdentifier) },
-                        set: { isOn in
-                            if isOn {
-                                enabledIDs.insert(cal.calendarIdentifier)
-                            } else {
-                                enabledIDs.remove(cal.calendarIdentifier)
+            if !calendarService.hasCalendarAccess {
+                accessRequiredState
+            } else if calendarService.availableCalendars.isEmpty {
+                emptyCalendarsState
+            } else {
+                List {
+                    ForEach(calendarService.availableCalendars, id: \.calendarIdentifier) { cal in
+                        Toggle(isOn: Binding(
+                            get: { enabledIDs.contains(cal.calendarIdentifier) },
+                            set: { isOn in
+                                if isOn {
+                                    enabledIDs.insert(cal.calendarIdentifier)
+                                } else {
+                                    enabledIDs.remove(cal.calendarIdentifier)
+                                }
+                                UserDefaults.standard.set(Array(enabledIDs), forKey: "enabledCalendarIDs")
+                                calendarService.fetchEvents()
                             }
-                            UserDefaults.standard.set(Array(enabledIDs), forKey: "enabledCalendarIDs")
-                            calendarService.fetchEvents()
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(cal.title)
+                                Text(cal.source.title)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                    ))
+                    }
                 }
             }
         }
         .padding()
+        .onAppear {
+            calendarService.refreshState()
+        }
+    }
+
+    private var accessRequiredState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Calendar access is required", systemImage: "calendar.badge.exclamationmark")
+                .font(.headline)
+
+            Text("Allow access and reopen this tab to load your available calendars.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("Request Access") {
+                Task {
+                    await calendarService.requestAccess()
+                    calendarService.refreshState()
+                }
+            }
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var emptyCalendarsState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("No calendars found yet", systemImage: "tray")
+                .font(.headline)
+
+            Text("Countdown only sees calendars that are already available in Apple Calendar on this Mac.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("Refresh Calendars") {
+                calendarService.refreshState()
+            }
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
