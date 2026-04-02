@@ -1,6 +1,6 @@
 # COUNTDOWN
 
-A macOS menu bar app that plays a dramatic soundtrack with a full-screen countdown overlay before your meetings start.
+A macOS menu bar app that plays the soundtrack of your choice with a full-screen countdown overlay before your meetings start.
 
 Inspired by [@rtwlz]
 
